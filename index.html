@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HackMint Alerts - Opportunities that shape your future</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Tailwind Custom Configuration for Colors
+        tailwind.config = {
+            darkMode: 'class', // Enable dark mode based on the 'dark' class on the <html> tag
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#1E40AF', // Deep Blue
+                        'mint-green': '#34D399', // Energetic Mint
+                        'dark-text': '#0F172A', // Slate 900
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Poppins', 'sans-serif'], // Use clean, modern fonts
+                    }
+                }
+            }
+        }
+        
+        // --- Dark Mode Initialization & Toggle Logic ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check for saved preference or system preference
+            const isDarkMode = localStorage.getItem('theme') === 'dark' || 
+                                (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            
+            if (isDarkMode) {
+                document.documentElement.classList.add('dark');
+                updateThemeIcon(true);
+            } else {
+                updateThemeIcon(false);
+            }
+            // Run the API fetch immediately after the DOM loads
+            fetchOpportunities();
+        });
+
+        function updateThemeIcon(isDark) {
+            const iconContainer = document.getElementById('theme-toggle-icon');
+            if (!iconContainer) return;
+
+            if (isDark) {
+                // Sun icon for dark mode
+                iconContainer.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>';
+            } else {
+                // Moon icon for light mode
+                iconContainer.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>';
+            }
+        }
+
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            const isDark = html.classList.contains('dark');
+            
+            if (isDark) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                updateThemeIcon(false);
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                updateThemeIcon(true);
+            }
+        }
+
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        // --- API Integration Logic ---
+        async function fetchOpportunities() {
+            // 🚨 Use your actual confirmed live API URL 🚨
+            const API_URL = 'https://hackmint-api-fixed.onrender.com/api/opportunities'; 
+            const container = document.getElementById('opportunities-container');
+
+            try {
+                const response = await fetch(API_URL);
+                const opportunities = await response.json();
+
+                // Clear the 'Loading' message
+                container.innerHTML = ''; 
+
+                if (opportunities.length === 0) {
+                    container.innerHTML = '<p class="text-center text-xl text-gray-500 dark:text-gray-400 col-span-full">No current opportunities available. Check back soon!</p>';
+                    return;
+                }
+
+                opportunities.forEach(opportunity => {
+                    // Format the date for display
+                    const deadlineDate = new Date(opportunity.deadline).toLocaleDateString('en-US', {
+                        day: '2-digit', month: 'long', year: 'numeric'
+                    });
+
+                    // Dynamic styling based on 'type' field from the database
+                    let tagColor, tagText;
+                    switch (opportunity.type.toLowerCase()) {
+                        case 'hackathon':
+                            tagColor = 'bg-mint-green'; tagText = 'Hackathon';
+                            break;
+                        case 'internship':
+                            tagColor = 'bg-yellow-400'; tagText = 'Internship';
+                            break;
+                        case 'scholarship':
+                            tagColor = 'bg-sky-400'; tagText = 'Scholarship';
+                            break;
+                        default:
+                            tagColor = 'bg-gray-400'; tagText = opportunity.type;
+                    }
+
+                    const cardHTML = `
+                        <article class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 transform hover:shadow-2xl hover:-translate-y-1 transition duration-500 dark:bg-gray-800 dark:border-gray-700">
+                            <div class="p-4 flex justify-between items-center bg-primary-blue text-white dark:bg-primary-blue/80">
+                                <span class="text-xs font-bold uppercase tracking-widest ${tagColor} text-dark-text px-2 py-1 rounded-full">
+                                    ${tagText}
+                                </span>
+                                <span class="text-sm font-medium">
+                                    ${opportunity.location || 'N/A'}
+                                </span>
+                            </div>
+                            <div class="p-6">
+                                <h3 class="text-xl font-bold mb-2 dark:text-white">
+                                    <a href="${opportunity.link}" target="_blank" class="hover:text-primary-blue transition duration-300">
+                                        ${opportunity.title}
+                                    </a>
+                                </h3>
+                                <p class="text-sm text-gray-500 mb-4 dark:text-gray-400">
+                                    ID: #${opportunity.id}
+                                </p>
+                                <p class="text-gray-700 mb-4 text-sm line-clamp-2 dark:text-gray-300">
+                                    A ${opportunity.type} opportunity listed on HackMint Alerts.
+                                </p>
+                                <div class="grid grid-cols-2 gap-3 text-sm mb-5">
+                                    <div>
+                                        <p class="font-semibold text-primary-blue">Deadline</p>
+                                        <p class="font-bold text-red-500">${deadlineDate}</p>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-primary-blue">Created At</p>
+                                        <p class="font-bold">${new Date(opportunity.created_at).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                                <a href="${opportunity.link}" target="_blank" class="block w-full text-center bg-mint-green text-dark-text font-semibold py-3 rounded-lg hover:bg-emerald-500 transition duration-300 shadow-md">
+                                    View Details / Apply
+                                </a>
+                            </div>
+                        </article>
+                    `;
+                    container.insertAdjacentHTML('beforeend', cardHTML);
+                });
+
+            } catch (error) {
+                console.error('Error fetching opportunities:', error);
+                container.innerHTML = '<p class="text-center text-red-500 col-span-full">Failed to load data from API. Please check the API URL and console for network errors.</p>';
+            }
+        }
+    </script>
+</head>
+<body class="font-sans bg-white text-dark-text min-h-screen flex flex-col transition-colors duration-500 dark:bg-gray-900 dark:text-gray-100">
+
+    <header class="bg-white shadow-lg sticky top-0 z-50 dark:bg-gray-800 dark:shadow-2xl">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <a href="#" class="text-2xl font-extrabold text-primary-blue">
+                HackMint <span class="text-mint-green">Alerts</span>
+            </a>
+            <div class="hidden lg:flex space-x-6 items-center">
+                <a href="#trending" class="text-dark-text hover:text-primary-blue transition duration-300 font-medium dark:text-gray-200 dark:hover:text-mint-green">Opportunities</a>
+                <a href="#" class="text-dark-text hover:text-primary-blue transition duration-300 font-medium dark:text-gray-200 dark:hover:text-mint-green">Hackathons</a>
+                <a href="#" class="text-dark-text hover:text-primary-blue transition duration-300 font-medium dark:text-gray-200 dark:hover:text-mint-green">Internships</a>
+                <a href="#" class="text-dark-text hover:text-primary-blue transition duration-300 font-medium dark:text-gray-200 dark:hover:text-mint-green">Blogs</a>
+                
+                <button class="px-4 py-2 bg-mint-green text-dark-text rounded-lg hover:bg-emerald-500 transition duration-300 shadow-md font-semibold">Submit an Event</button>
+                <button class="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-blue-800 transition duration-300 shadow-md">Login / Sign Up</button>
+                
+                <button class="text-xl ml-2 p-2 rounded-full hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 transition duration-300" onclick="toggleDarkMode()">
+                    <svg id="theme-toggle-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        </svg>
+                </button>
+            </div>
+            <button class="lg:hidden text-2xl text-dark-text dark:text-gray-200" onclick="toggleMobileMenu()">☰</button>
+        </nav>
+        <div id="mobile-menu" class="hidden lg:hidden bg-white border-t border-gray-100 dark:bg-gray-800 dark:border-gray-700">
+            <a href="#trending" class="block px-4 py-3 text-dark-text hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700">Opportunities</a>
+            <a href="#" class="block px-4 py-3 text-dark-text hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700">Hackathons</a>
+            <button class="w-full px-4 py-3 bg-mint-green text-dark-text hover:bg-emerald-500 transition duration-300 font-semibold mt-2">Login / Sign Up</button>
+        </div>
+    </header>
+
+    <main class="flex-grow">
+        <section class="bg-primary-blue py-16 sm:py-24 text-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-4 leading-tight">
+                    Opportunities that <span class="text-mint-green">shape your future</span>
+                </h1>
+                <p class="text-lg sm:text-xl mb-10 opacity-90">
+                    Find the perfect Hackathon, Internship, Competition, or Scholarship.
+                </p>
+                <div class="max-w-3xl mx-auto flex">
+                    <input type="search" placeholder="Search Hackathons, Internships, Jobs..." 
+                            class="flex-grow p-4 rounded-l-xl text-dark-text focus:outline-none focus:ring-4 focus:ring-mint-green focus:border-mint-green shadow-xl transition duration-300"
+                            aria-label="Search opportunities">
+                    <button class="bg-mint-green text-dark-text font-semibold px-6 py-4 rounded-r-xl hover:bg-emerald-500 transition duration-300 flex items-center shadow-xl">
+                        Search
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="trending" class="py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 class="text-3xl font-bold mb-8 border-l-4 border-mint-green pl-3 dark:text-gray-50">🔥 Trending Opportunities</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="opportunities-container">
+                    <p class="text-center col-span-full py-8 text-lg text-gray-400 dark:text-gray-600">Loading opportunities...</p>
+                </div>
+                
+                <div class="text-center mt-12">
+                    <a href="opportunities.html" class="inline-block px-8 py-3 bg-primary-blue text-white text-lg font-semibold rounded-full hover:bg-blue-800 transition duration-300 shadow-xl">
+                        Explore All Opportunities →
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-gray-50 py-16 dark:bg-gray-800">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h2 class="text-3xl font-bold mb-4 dark:text-white">Mint Your Future: Get Weekly Alerts!</h2>
+                <p class="mb-6 text-gray-600 dark:text-gray-400">Subscribe to our newsletter for hand-picked opportunities straight to your inbox.</p>
+                <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <input type="email" placeholder="Enter your best email address" 
+                            class="p-4 rounded-lg border border-gray-300 focus:ring-primary-blue focus:border-primary-blue sm:w-80 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            aria-label="Email subscription input">
+                    <button class="bg-mint-green text-dark-text font-semibold px-6 py-4 rounded-lg hover:bg-emerald-500 transition duration-300 shadow-md">
+                        Subscribe Now
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 class="text-3xl font-bold mb-8 border-l-4 border-primary-blue pl-3 dark:text-gray-50">Student Success Stories</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <blockquote class="p-6 bg-white border border-gray-100 rounded-xl shadow-lg hover:shadow-xl transition duration-300 dark:bg-gray-800 dark:border-gray-700">
+                        <p class="text-gray-700 italic dark:text-gray-300">"I landed my first tech internship thanks to a HackMint Alert! The filtering was super helpful and the deadlines were always accurate."</p>
+                        <footer class="mt-4 font-semibold text-dark-text dark:text-mint-green">- Aishwarya P., VIT</footer>
+                    </blockquote>
+                    <blockquote class="p-6 bg-white border border-gray-100 rounded-xl shadow-lg hover:shadow-xl transition duration-300 dark:bg-gray-800 dark:border-gray-700">
+                        <p class="text-gray-700 italic dark:text-gray-300">"The best consolidated source for hackathons. Saved me hours of searching across different platforms."</p>
+                        <footer class="mt-4 font-semibold text-dark-text dark:text-mint-green">- Rohan S., IIT Delhi</footer>
+                    </blockquote>
+                    <blockquote class="p-6 bg-white border border-gray-100 rounded-xl shadow-lg hover:shadow-xl transition duration-300 dark:bg-gray-800 dark:border-gray-700">
+                        <p class="text-gray-700 italic dark:text-gray-300">"HackMint Alerts helped me find a niche competition that boosted my resume significantly. Highly recommend!"</p>
+                        <footer class="mt-4 font-semibold text-dark-text dark:text-mint-green">- Li Wei, NUS Singapore</footer>
+                    </blockquote>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-primary-blue/10 py-12 text-center dark:bg-gray-800/50">
+            <h2 class="text-2xl sm:text-3xl font-bold mb-4 dark:text-white">Are you hosting an event?</h2>
+            <p class="text-lg mb-6 text-gray-700 dark:text-gray-300">Reach thousands of motivated students and professionals with a HackMint Alert.</p>
+            <a href="submit-event.html" class="inline-block px-8 py-3 bg-mint-green text-dark-text text-lg font-semibold rounded-full hover:bg-emerald-500 transition duration-300 shadow-lg">
+                Submit an Event
+            </a>
+        </section>
+
+    </main>
+
+    <footer class="bg-dark-text text-white mt-12 pt-10 pb-6 dark:bg-gray-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-5 gap-8 border-b border-gray-700 pb-8">
+            <div>
+                <h3 class="text-xl font-bold mb-4 text-mint-green">HackMint Alerts</h3>
+                <p class="text-sm text-gray-400">Opportunities that shape your future.</p>
+            </div>
+            <div><h4 class="font-semibold mb-3">Quick Links</h4>
+                <ul class="space-y-2 text-sm text-gray-400">
+                    <li><a href="about.html" class="hover:text-mint-green">About Us</a></li>
+                    <li><a href="contact.html" class="hover:text-mint-green">Contact Us</a></li>
+                    <li><a href="blogs.html" class="hover:text-mint-green">Blogs</a></li>
+                    <li><a href="#" class="hover:text-mint-green">Terms & Privacy</a></li>
+                </ul>
+            </div>
+              <div><h4 class="font-semibold mb-3">Opportunities</h4>
+                <ul class="space-y-2 text-sm text-gray-400">
+                    <li><a href="#" class="hover:text-mint-green">Hackathons</a></li>
+                    <li><a href="#" class="hover:text-mint-green">Internships</a></li>
+                    <li><a href="#" class="hover:text-mint-green">Scholarships</a></li>
+                    <li><a href="#" class="hover:text-mint-green">Competitions</a></li>
+                </ul>
+            </div>
+            <div><h4 class="font-semibold mb-3">Resources</h4>
+                <ul class="space-y-2 text-sm text-gray-400">
+                    <li><a href="#" class="hover:text-mint-green">Student Login</a></li>
+                    <li><a href="#" class="hover:text-mint-green">Event Partner Portal</a></li>
+                </ul>
+            </div>
+            <div><h4 class="font-semibold mb-3">Get In Touch</h4>
+                <p class="text-sm text-gray-400">support@hackmintalerts.com</p>
+                <div class="flex space-x-4 mt-3">
+                     <a href="#" class="hover:text-mint-green transition duration-300">🐦</a>
+                     <a href="#" class="hover:text-mint-green transition duration-300">💼</a>
+                     <a href="#" class="hover:text-mint-green transition duration-300">📸</a>
+                </div>
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 flex justify-between items-center text-sm text-gray-400">
+            <p>&copy; 2025 HackMint Alerts. All rights reserved.</p>
+            <p>Made with ❤️ and Code</p>
+        </div>
+    </footer>
+
+</body>
+</html>
