@@ -39,7 +39,7 @@ const createOpportunitiesTable = async () => {
     }
 };
 
-// New Function: Insert a single opportunity
+// Function: Insert a single opportunity
 const insertOpportunity = async (opportunity) => {
     const { title, type, deadline, link, location } = opportunity;
 
@@ -59,7 +59,7 @@ const insertOpportunity = async (opportunity) => {
     }
 };
 
-// New Function: Fetch all active opportunities
+// Function: Fetch all active opportunities
 const getOpportunities = async () => {
     const selectQuery = `
         SELECT id, title, type, deadline, link, location, created_at
@@ -80,6 +80,6 @@ const getOpportunities = async () => {
 module.exports = {
     query,
     createOpportunitiesTable,
-    insertOpportunity, // EXPORTED
-    getOpportunities, // EXPORTED
+    insertOpportunity,
+    getOpportunities,
 };

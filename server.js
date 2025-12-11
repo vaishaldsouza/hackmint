@@ -1,58 +1,90 @@
+// Load environment variables from .env file (for local development only)
 require('dotenv').config();
+
 const express = require('express');
-const { Pool } = require('pg');
 const cors = require('cors');
 
+// Import the database functions
+const { 
+    query, 
+    createOpportunitiesTable, 
+    insertOpportunity, 
+    getOpportunities 
+} = require('./db/index'); 
+
+// --- Configuration ---
+const PORT = process.env.PORT || 5000;
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json()); 
+// --- Middleware ---
+// 🚨 CRITICAL: These must be BEFORE any app.post() or app.get() routes
+app.use(cors()); 
+app.use(express.json()); // This allows Express to read incoming JSON POST bodies
 
-// Database Connection
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
+// --- Routes ---
+
+// 1. Root Route (Health Check)
+app.get('/', (req, res) => {
+    res.status(200).json({
+        message: "HackMint Alerts API is running!",
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+
+// 2. POST /api/opportunities: Inserts a new opportunity
+app.post('/api/opportunities', async (req, res) => {
+    // Basic validation
+    const { title, type, link } = req.body;
+    if (!title || !type || !link) {
+        return res.status(400).json({ 
+            message: "Missing required fields: title, type, and link are mandatory." 
+        });
+    }
+
+    try {
+        // Use the function from db/index.js to insert the data
+        const newOpportunity = await insertOpportunity(req.body); 
+
+        res.status(201).json({
+            message: "Opportunity added successfully!",
+            opportunity: newOpportunity 
+        });
+
+    } catch (error) {
+        console.error('Error in POST /api/opportunities:', error.message);
+        res.status(500).json({ 
+            message: "Failed to insert opportunity into database.",
+            error: error.message
+        });
     }
 });
 
-// 🚨 Security Middleware TEMPORARILY REMOVED for stable deployment 🚨
 
-// --- API Routes ---
-
-// GET: Fetch all opportunities (Public Access)
+// 3. GET /api/opportunities: Fetches all active opportunities
 app.get('/api/opportunities', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM opportunities ORDER BY created_at DESC');
-        res.json(result.rows);
+        // Use the function from db/index.js to fetch data
+        const opportunities = await getOpportunities(); 
+        
+        // Return the array of opportunities (even if empty)
+        res.status(200).json(opportunities);
+        
     } catch (error) {
-        console.error('Error executing GET query:', error);
-        res.status(500).json({ message: 'Failed to retrieve opportunities.' });
+        console.error('Error in GET /api/opportunities:', error.message);
+        res.status(500).json({ 
+            message: "Failed to fetch opportunities from database.",
+            error: error.message
+        });
     }
 });
 
-// POST: Create a new opportunity (TEMPORARILY PUBLIC ACCESS)
-app.post('/api/opportunities', async (req, res) => {
-    // The 'secret' key is now ignored, making this route publicly accessible.
-    const { title, type, deadline, link, location } = req.body; 
 
-    try {
-        const result = await pool.query(
-            'INSERT INTO opportunities (title, type, deadline, link, location) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [title, type, deadline, link, location]
-        );
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        console.error('Error executing POST query:', error);
-        res.status(500).json({ message: 'Failed to create opportunity.' });
-    }
-});
-
-// DELETE route is removed to ensure stability.
-
-// Start the server
-app.listen(PORT, () => {
+// --- Start Server ---
+app.listen(PORT, async () => {
     console.log(`Server running on port ${PORT}`);
+    
+    // Ensure the table is created on server startup
+    await createOpportunitiesTable(); 
+    
+    console.log(`Access at: http://localhost:${PORT}`);
 });
