@@ -8,16 +8,16 @@
     <script>
         // Tailwind Custom Configuration for Colors
         tailwind.config = {
-            darkMode: 'class', // Enable dark mode based on the 'dark' class on the <html> tag
+            darkMode: 'class', 
             theme: {
                 extend: {
                     colors: {
-                        'primary-blue': '#1E40AF', // Deep Blue
-                        'mint-green': '#34D399', // Energetic Mint
-                        'dark-text': '#0F172A', // Slate 900
+                        'primary-blue': '#1E40AF', 
+                        'mint-green': '#34D399', 
+                        'dark-text': '#0F172A', 
                     },
                     fontFamily: {
-                        sans: ['Inter', 'Poppins', 'sans-serif'], // Use clean, modern fonts
+                        sans: ['Inter', 'Poppins', 'sans-serif'], 
                     }
                 }
             }
@@ -25,7 +25,6 @@
         
         // --- Dark Mode Initialization & Toggle Logic ---
         document.addEventListener('DOMContentLoaded', () => {
-            // Check for saved preference or system preference
             const isDarkMode = localStorage.getItem('theme') === 'dark' || 
                                 (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
             
@@ -35,7 +34,6 @@
             } else {
                 updateThemeIcon(false);
             }
-            // Run the API fetch immediately after the DOM loads
             fetchOpportunities();
         });
 
@@ -44,10 +42,8 @@
             if (!iconContainer) return;
 
             if (isDark) {
-                // Sun icon for dark mode
                 iconContainer.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>';
             } else {
-                // Moon icon for light mode
                 iconContainer.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>';
             }
         }
@@ -72,11 +68,56 @@
             menu.classList.toggle('hidden');
         }
 
-        // --- API Integration Logic ---
+
+        // --- NEW Delete Logic ---
+        async function deleteOpportunity(id) {
+            if (!confirm(`Are you sure you want to delete opportunity ID #${id}? This cannot be undone.`)) {
+                return;
+            }
+
+            // 🚨 Prompt for the secret key before proceeding
+            const adminSecret = prompt("ENTER ADMIN SECRET KEY to confirm deletion:");
+            if (!adminSecret) {
+                alert("Deletion cancelled.");
+                return;
+            }
+
+            const API_URL = `https://hackmint-api-fixed.onrender.com/api/opportunities/${id}`; 
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    // 🚨 Send the secret key in the body of the DELETE request
+                    body: JSON.stringify({ secret: adminSecret })
+                });
+
+                if (response.ok) {
+                    alert(`Opportunity ID #${id} deleted successfully!`);
+                    // Re-fetch and re-render the list immediately
+                    fetchOpportunities(); 
+                } else {
+                    const errorText = await response.text();
+                    alert(`Failed to delete opportunity ID #${id}. You may have entered an incorrect secret key.`);
+                }
+
+            } catch (error) {
+                console.error('Error deleting opportunity:', error);
+                alert('A network error occurred. Check the console.');
+            }
+        }
+
+
+        // --- API Integration Logic (Updated fetchOpportunities) ---
         async function fetchOpportunities() {
             // 🚨 Use your actual confirmed live API URL 🚨
             const API_URL = 'https://hackmint-api-fixed.onrender.com/api/opportunities'; 
             const container = document.getElementById('opportunities-container');
+
+            // Show loading state
+            container.innerHTML = '<p class="text-center col-span-full py-8 text-lg text-gray-400 dark:text-gray-600">Loading opportunities...</p>';
 
             try {
                 const response = await fetch(API_URL);
@@ -98,7 +139,7 @@
 
                     // Dynamic styling based on 'type' field from the database
                     let tagColor, tagText;
-                    switch (opportunity.type.toLowerCase()) {
+                    switch ((opportunity.type || '').toLowerCase()) {
                         case 'hackathon':
                             tagColor = 'bg-mint-green'; tagText = 'Hackathon';
                             break;
@@ -108,8 +149,11 @@
                         case 'scholarship':
                             tagColor = 'bg-sky-400'; tagText = 'Scholarship';
                             break;
+                        case 'challenge':
+                            tagColor = 'bg-red-400'; tagText = 'Challenge';
+                            break;
                         default:
-                            tagColor = 'bg-gray-400'; tagText = opportunity.type;
+                            tagColor = 'bg-purple-400'; tagText = opportunity.type || 'Opportunity';
                     }
 
                     const cardHTML = `
@@ -132,7 +176,7 @@
                                     ID: #${opportunity.id}
                                 </p>
                                 <p class="text-gray-700 mb-4 text-sm line-clamp-2 dark:text-gray-300">
-                                    A ${opportunity.type} opportunity listed on HackMint Alerts.
+                                    A ${opportunity.type || 'Tech'} opportunity listed on HackMint Alerts.
                                 </p>
                                 <div class="grid grid-cols-2 gap-3 text-sm mb-5">
                                     <div>
@@ -144,9 +188,14 @@
                                         <p class="font-bold">${new Date(opportunity.created_at).toLocaleDateString()}</p>
                                     </div>
                                 </div>
-                                <a href="${opportunity.link}" target="_blank" class="block w-full text-center bg-mint-green text-dark-text font-semibold py-3 rounded-lg hover:bg-emerald-500 transition duration-300 shadow-md">
-                                    View Details / Apply
-                                </a>
+                                <div class="flex space-x-2">
+                                    <a href="${opportunity.link}" target="_blank" class="flex-grow text-center bg-mint-green text-dark-text font-semibold py-3 rounded-lg hover:bg-emerald-500 transition duration-300 shadow-md">
+                                        View Details / Apply
+                                    </a>
+                                    <button onclick="deleteOpportunity(${opportunity.id})" class="p-3 bg-red-500 text-white rounded-lg hover:bg-red-700 transition duration-300 shadow-md font-semibold" title="Delete Opportunity">
+                                        🗑️
+                                    </button>
+                                </div>
                             </div>
                         </article>
                     `;
@@ -164,18 +213,12 @@
 
     <header class="bg-white shadow-lg sticky top-0 z-50 dark:bg-gray-800 dark:shadow-2xl">
         <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <a href="#" class="text-2xl font-extrabold text-primary-blue">
+            <a href="index.html" class="text-2xl font-extrabold text-primary-blue">
                 HackMint <span class="text-mint-green">Alerts</span>
             </a>
             <div class="hidden lg:flex space-x-6 items-center">
                 <a href="#trending" class="text-dark-text hover:text-primary-blue transition duration-300 font-medium dark:text-gray-200 dark:hover:text-mint-green">Opportunities</a>
-                <a href="#" class="text-dark-text hover:text-primary-blue transition duration-300 font-medium dark:text-gray-200 dark:hover:text-mint-green">Hackathons</a>
-                <a href="#" class="text-dark-text hover:text-primary-blue transition duration-300 font-medium dark:text-gray-200 dark:hover:text-mint-green">Internships</a>
-                <a href="#" class="text-dark-text hover:text-primary-blue transition duration-300 font-medium dark:text-gray-200 dark:hover:text-mint-green">Blogs</a>
-                
-                <button class="px-4 py-2 bg-mint-green text-dark-text rounded-lg hover:bg-emerald-500 transition duration-300 shadow-md font-semibold">Submit an Event</button>
-                <button class="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-blue-800 transition duration-300 shadow-md">Login / Sign Up</button>
-                
+                <a href="submit-event.html" class="px-4 py-2 bg-mint-green text-dark-text rounded-lg hover:bg-emerald-500 transition duration-300 shadow-md font-semibold">Submit an Event</a>
                 <button class="text-xl ml-2 p-2 rounded-full hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 transition duration-300" onclick="toggleDarkMode()">
                     <svg id="theme-toggle-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         </svg>
@@ -185,8 +228,7 @@
         </nav>
         <div id="mobile-menu" class="hidden lg:hidden bg-white border-t border-gray-100 dark:bg-gray-800 dark:border-gray-700">
             <a href="#trending" class="block px-4 py-3 text-dark-text hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700">Opportunities</a>
-            <a href="#" class="block px-4 py-3 text-dark-text hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700">Hackathons</a>
-            <button class="w-full px-4 py-3 bg-mint-green text-dark-text hover:bg-emerald-500 transition duration-300 font-semibold mt-2">Login / Sign Up</button>
+            <a href="submit-event.html" class="block px-4 py-3 bg-mint-green text-dark-text hover:bg-emerald-500 transition duration-300 font-semibold mt-2">Submit an Event</a>
         </div>
     </header>
 
@@ -216,12 +258,6 @@
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="opportunities-container">
                     <p class="text-center col-span-full py-8 text-lg text-gray-400 dark:text-gray-600">Loading opportunities...</p>
-                </div>
-                
-                <div class="text-center mt-12">
-                    <a href="opportunities.html" class="inline-block px-8 py-3 bg-primary-blue text-white text-lg font-semibold rounded-full hover:bg-blue-800 transition duration-300 shadow-xl">
-                        Explore All Opportunities →
-                    </a>
                 </div>
             </div>
         </section>
@@ -273,40 +309,11 @@
 
     <footer class="bg-dark-text text-white mt-12 pt-10 pb-6 dark:bg-gray-950">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-5 gap-8 border-b border-gray-700 pb-8">
-            <div>
-                <h3 class="text-xl font-bold mb-4 text-mint-green">HackMint Alerts</h3>
-                <p class="text-sm text-gray-400">Opportunities that shape your future.</p>
-            </div>
-            <div><h4 class="font-semibold mb-3">Quick Links</h4>
-                <ul class="space-y-2 text-sm text-gray-400">
-                    <li><a href="about.html" class="hover:text-mint-green">About Us</a></li>
-                    <li><a href="contact.html" class="hover:text-mint-green">Contact Us</a></li>
-                    <li><a href="blogs.html" class="hover:text-mint-green">Blogs</a></li>
-                    <li><a href="#" class="hover:text-mint-green">Terms & Privacy</a></li>
-                </ul>
-            </div>
-              <div><h4 class="font-semibold mb-3">Opportunities</h4>
-                <ul class="space-y-2 text-sm text-gray-400">
-                    <li><a href="#" class="hover:text-mint-green">Hackathons</a></li>
-                    <li><a href="#" class="hover:text-mint-green">Internships</a></li>
-                    <li><a href="#" class="hover:text-mint-green">Scholarships</a></li>
-                    <li><a href="#" class="hover:text-mint-green">Competitions</a></li>
-                </ul>
-            </div>
-            <div><h4 class="font-semibold mb-3">Resources</h4>
-                <ul class="space-y-2 text-sm text-gray-400">
-                    <li><a href="#" class="hover:text-mint-green">Student Login</a></li>
-                    <li><a href="#" class="hover:text-mint-green">Event Partner Portal</a></li>
-                </ul>
-            </div>
-            <div><h4 class="font-semibold mb-3">Get In Touch</h4>
-                <p class="text-sm text-gray-400">support@hackmintalerts.com</p>
-                <div class="flex space-x-4 mt-3">
-                     <a href="#" class="hover:text-mint-green transition duration-300">🐦</a>
-                     <a href="#" class="hover:text-mint-green transition duration-300">💼</a>
-                     <a href="#" class="hover:text-mint-green transition duration-300">📸</a>
-                </div>
-            </div>
+            <div><h3 class="text-xl font-bold mb-4 text-mint-green">HackMint Alerts</h3><p class="text-sm text-gray-400">Opportunities that shape your future.</p></div>
+            <div><h4 class="font-semibold mb-3">Quick Links</h4><ul class="space-y-2 text-sm text-gray-400"><li><a href="about.html" class="hover:text-mint-green">About Us</a></li><li><a href="contact.html" class="hover:text-mint-green">Contact Us</a></li><li><a href="blogs.html" class="hover:text-mint-green">Blogs</a></li><li><a href="#" class="hover:text-mint-green">Terms & Privacy</a></li></ul></div>
+            <div><h4 class="font-semibold mb-3">Opportunities</h4><ul class="space-y-2 text-sm text-gray-400"><li><a href="#" class="hover:text-mint-green">Hackathons</a></li><li><a href="#" class="hover:text-mint-green">Internships</a></li><li><a href="#" class="hover:text-mint-green">Scholarships</a></li><li><a href="#" class="hover:text-mint-green">Competitions</a></li></ul></div>
+            <div><h4 class="font-semibold mb-3">Resources</h4><ul class="space-y-2 text-sm text-gray-400"><li><a href="#" class="hover:text-mint-green">Student Login</a></li><li><a href="#" class="hover:text-mint-green">Event Partner Portal</a></li></ul></div>
+            <div><h4 class="font-semibold mb-3">Get In Touch</h4><p class="text-sm text-gray-400">support@hackmintalerts.com</p><div class="flex space-x-4 mt-3"><a href="#" class="hover:text-mint-green transition duration-300">🐦</a><a href="#" class="hover:text-mint-green transition duration-300">💼</a><a href="#" class="hover:text-mint-green transition duration-300">📸</a></div></div>
         </div>
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 flex justify-between items-center text-sm text-gray-400">
             <p>&copy; 2025 HackMint Alerts. All rights reserved.</p>

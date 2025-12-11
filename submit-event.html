@@ -23,6 +23,19 @@
             }
         }
 
+        // Helper function to show/hide the "Other" text input
+        function toggleOtherTypeInput(selectedValue) {
+            const container = document.getElementById('other-type-container');
+            const otherInput = document.getElementById('type-other');
+            if (selectedValue === 'Other') {
+                container.classList.remove('hidden');
+                otherInput.setAttribute('required', 'required');
+            } else {
+                container.classList.add('hidden');
+                otherInput.removeAttribute('required');
+            }
+        }
+
         // --- Submission Logic ---
         async function submitOpportunity(event) {
             event.preventDefault(); // Stop the default form submission (page reload)
@@ -35,24 +48,31 @@
             statusMessage.classList.remove('text-green-500', 'text-red-500');
             statusMessage.classList.add('text-gray-500');
 
-            // 1. Collect Data from the Form Fields
+            // 1. Determine the final type (from dropdown or custom text field)
+            const selectedType = form['type-select'].value;
+            const finalType = selectedType === 'Other' 
+                ? form['type-other'].value 
+                : selectedType;
+
+            // 2. Collect Data from the Form Fields (including the secret)
             const opportunityData = {
                 title: form.title.value,
-                type: form.type.value,
+                type: finalType, 
                 deadline: form.deadline.value,
                 link: form.link.value,
-                location: form.location.value
+                location: form.location.value,
+                secret: form.secret.value // 🚨 Grab the secret key
             };
 
             // Basic validation
-            if (!opportunityData.title || !opportunityData.link) {
-                statusMessage.textContent = 'Error: Title and Link are required fields.';
+            if (!opportunityData.title || !opportunityData.link || !opportunityData.secret) {
+                statusMessage.textContent = 'Error: Title, Link, and Secret Key are required fields.';
                 statusMessage.classList.add('text-red-500');
                 return;
             }
 
             try {
-                // 2. Send Data via POST Request
+                // 3. Send Data via POST Request
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: {
@@ -61,30 +81,34 @@
                     body: JSON.stringify(opportunityData)
                 });
 
-                // 3. Handle API Response
+                // 4. Handle API Response
                 if (response.ok) {
                     const newRecord = await response.json();
                     statusMessage.textContent = `Success! Opportunity ID #${newRecord.id} added. Redirecting in 3 seconds...`;
                     statusMessage.classList.remove('text-gray-500');
                     statusMessage.classList.add('text-green-500');
                     form.reset(); // Clear the form on success
-
-                    // 4. Redirect the user back to the main page after a delay
+                    
+                    // 5. Redirect the user back to the main page after a delay
                     setTimeout(() => {
                         window.location.href = 'index.html';
                     }, 3000);
 
-                } else {
-                    const errorDetails = await response.text();
-                    statusMessage.textContent = `Error: API failed with status ${response.status}. Details: ${errorDetails.substring(0, 100)}...`;
-                    statusMessage.classList.remove('text-gray-500');
+                } else if (response.status === 401) {
+                    // Handle unauthorized error specifically
+                    statusMessage.textContent = `Submission Failed: Invalid Admin Secret Key.`;
                     statusMessage.classList.add('text-red-500');
+                } else {
+                    // Handle other server errors
+                    const errorDetails = await response.text();
+                    statusMessage.textContent = `Error: API failed with status ${response.status}. Check console for details.`;
+                    statusMessage.classList.add('text-red-500');
+                    console.error('API Error Details:', errorDetails);
                 }
 
             } catch (error) {
                 // Handle network errors (CORS, server down, etc.)
                 statusMessage.textContent = `Network Error: Could not reach the API. Check the console for details.`;
-                statusMessage.classList.remove('text-gray-500');
                 statusMessage.classList.add('text-red-500');
                 console.error('Submission Error:', error);
             }
@@ -106,7 +130,7 @@
 
     <main class="flex-grow py-12">
         <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 bg-white p-8 rounded-xl shadow-2xl dark:bg-gray-800 dark:border dark:border-gray-700">
-            <h1 class="text-3xl font-extrabold mb-6 text-dark-text dark:text-white border-b pb-3 border-mint-green/50">Submit a New Opportunity</h1>
+            <h1 class="text-3xl font-extrabold mb-6 text-dark-text dark:text-white border-b pb-3 border-mint-green/50">Submit a New Opportunity (Admin Only)</h1>
             
             <form id="opportunity-form" onsubmit="submitOpportunity(event)">
                 
@@ -118,15 +142,22 @@
                     </div>
 
                     <div>
-                        <label for="type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type of Opportunity</label>
-                        <select id="type" name="type" 
+                        <label for="type-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type of Opportunity</label>
+                        <select id="type-select" name="type-select" 
+                                onchange="toggleOtherTypeInput(this.value)"
                                 class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                             <option value="Hackathon">Hackathon</option>
                             <option value="Internship">Internship</option>
                             <option value="Scholarship">Scholarship</option>
                             <option value="Challenge">Coding Challenge/Competition</option>
-                            <option value="Other">Other</option>
+                            <option value="Other">Other (Specify Below)</option>
                         </select>
+                    </div>
+
+                    <div id="other-type-container" class="hidden">
+                        <label for="type-other" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Specify Type</label>
+                        <input type="text" id="type-other" name="type-other" placeholder="e.g., Fellowship, Grant"
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                     </div>
 
                     <div>
@@ -145,6 +176,13 @@
                         <label for="location" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location / Mode (e.g., Global, Remote, London)</label>
                         <input type="text" id="location" name="location" placeholder="Remote/Global"
                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                    
+                    <div>
+                        <label for="secret" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Admin Secret Key (Required)</label>
+                        <input type="password" id="secret" name="secret" required 
+                               placeholder="Enter Admin Secret"
+                               class="w-full p-3 border border-red-300 rounded-lg focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                     </div>
                 </div>
 
