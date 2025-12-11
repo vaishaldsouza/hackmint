@@ -4,14 +4,15 @@ const { Pool } = require('pg');
 const cors = require('cors');
 
 const app = express();
+// CRITICAL: Use the PORT provided by the environment
 const PORT = process.env.PORT || 3000;
 
 // Get the Admin Secret from the environment variables
 const ADMIN_SECRET = process.env.ADMIN_SECRET; 
 
 // Middleware
-app.use(cors()); // Allows your Netlify frontend to talk to this Render API
-app.use(express.json()); // Allows parsing of JSON request bodies
+app.use(cors());
+app.use(express.json()); 
 
 // Database Connection
 const pool = new Pool({
@@ -23,18 +24,19 @@ const pool = new Pool({
 
 // 🚨 Security Middleware: Checks for the Admin Secret Key 🚨
 const checkAdminSecret = (req, res, next) => {
-    // We expect the secret key to be in the body of POST and DELETE requests
+    // The secret must be in the request body for POST/DELETE
     const { secret } = req.body;
 
-    // Check if the secret is missing or incorrect against the server's environment variable
+    // Check if the secret is missing or incorrect
     if (!secret || secret !== ADMIN_SECRET) {
+        // Sends 401 Unauthorized status code
         return res.status(401).json({ message: 'Unauthorized. Missing or invalid secret key.' });
     }
     
-    // Remove the secret from the body before passing it to the database logic
+    // Remove the secret key before passing the request to the API logic
     delete req.body.secret; 
     
-    // If the secret is correct, proceed to the next function (the API logic)
+    // Proceed to the API route handler
     next(); 
 };
 
@@ -43,7 +45,6 @@ const checkAdminSecret = (req, res, next) => {
 // GET: Fetch all opportunities (Public Access)
 app.get('/api/opportunities', async (req, res) => {
     try {
-        // Order by created_at DESC to show newest first
         const result = await pool.query('SELECT * FROM opportunities ORDER BY created_at DESC');
         res.json(result.rows);
     } catch (error) {
@@ -52,9 +53,9 @@ app.get('/api/opportunities', async (req, res) => {
     }
 });
 
-// POST: Create a new opportunity (SECURED by checkAdminSecret)
+// POST: Create a new opportunity (SECURED)
 app.post('/api/opportunities', checkAdminSecret, async (req, res) => {
-    // The 'secret' field has already been removed by the middleware
+    // The 'secret' field is removed by the middleware
     const { title, type, deadline, link, location } = req.body; 
 
     try {
@@ -69,7 +70,7 @@ app.post('/api/opportunities', checkAdminSecret, async (req, res) => {
     }
 });
 
-// DELETE: Delete an opportunity by ID (SECURED by checkAdminSecret)
+// DELETE: Delete an opportunity by ID (SECURED)
 app.delete('/api/opportunities/:id', checkAdminSecret, async (req, res) => {
     const { id } = req.params;
     
