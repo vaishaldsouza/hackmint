@@ -69,13 +69,13 @@
         }
 
 
-        // --- NEW Delete Logic ---
+        // --- DELETE Opportunity Logic ---
         async function deleteOpportunity(id) {
             if (!confirm(`Are you sure you want to delete opportunity ID #${id}? This cannot be undone.`)) {
                 return;
             }
 
-            // 🚨 Prompt for the secret key before proceeding
+            // Prompt for the secret key before proceeding
             const adminSecret = prompt("ENTER ADMIN SECRET KEY to confirm deletion:");
             if (!adminSecret) {
                 alert("Deletion cancelled.");
@@ -90,7 +90,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    // 🚨 Send the secret key in the body of the DELETE request
+                    // Send the secret key in the body of the DELETE request
                     body: JSON.stringify({ secret: adminSecret })
                 });
 
@@ -110,9 +110,8 @@
         }
 
 
-        // --- API Integration Logic (Updated fetchOpportunities) ---
+        // --- API Integration Logic ---
         async function fetchOpportunities() {
-            // 🚨 Use your actual confirmed live API URL 🚨
             const API_URL = 'https://hackmint-api-fixed.onrender.com/api/opportunities'; 
             const container = document.getElementById('opportunities-container');
 
