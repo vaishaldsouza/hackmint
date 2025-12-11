@@ -1,24 +1,23 @@
 const { Pool } = require('pg');
 
-// Render sets the DATABASE_URL environment variable automatically
-// when we added it to the dashboard.
+// Render automatically sets the DATABASE_URL environment variable 
+// which contains the secure connection string.
 const connectionString = process.env.DATABASE_URL;
 
 const pool = new Pool({
     connectionString: connectionString,
-    // Add SSL configuration for secure connection to Render's DB
+    // Add SSL configuration required for secure connection to Render's DB
     ssl: {
         rejectUnauthorized: false
     }
 });
 
-// A wrapper function to execute queries
+// A wrapper function to execute queries for simplicity
 const query = (text, params) => {
-    // console.log('EXECUTING QUERY:', text); // Uncomment for debugging
     return pool.query(text, params);
 };
 
-// Function to create the Opportunities table (Schema Setup)
+// Function to create the Opportunities table if it doesn't exist
 const createOpportunitiesTable = async () => {
     const opportunitiesTableQuery = `
         CREATE TABLE IF NOT EXISTS opportunities (
@@ -42,5 +41,5 @@ const createOpportunitiesTable = async () => {
 
 module.exports = {
     query,
-    createOpportunitiesTable, // Export the setup function
+    createOpportunitiesTable, // Export the setup function for server.js
 };
