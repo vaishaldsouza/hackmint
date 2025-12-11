@@ -1,90 +1,103 @@
-// Load environment variables from .env file (for local development only)
 require('dotenv').config();
-
 const express = require('express');
+const { Pool } = require('pg');
 const cors = require('cors');
 
-// Import the database functions
-const { 
-    query, 
-    createOpportunitiesTable, 
-    insertOpportunity, 
-    getOpportunities 
-} = require('./db/index'); 
-
-// --- Configuration ---
-const PORT = process.env.PORT || 5000;
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// --- Middleware ---
-// 🚨 CRITICAL: These must be BEFORE any app.post() or app.get() routes
-app.use(cors()); 
-app.use(express.json()); // This allows Express to read incoming JSON POST bodies
+// Get the Admin Secret from the environment variables
+const ADMIN_SECRET = process.env.ADMIN_SECRET; 
 
-// --- Routes ---
+// Middleware
+app.use(cors()); // Allows your Netlify frontend to talk to this Render API
+app.use(express.json()); // Allows parsing of JSON request bodies
 
-// 1. Root Route (Health Check)
-app.get('/', (req, res) => {
-    res.status(200).json({
-        message: "HackMint Alerts API is running!",
-        environment: process.env.NODE_ENV || 'development'
-    });
-});
-
-// 2. POST /api/opportunities: Inserts a new opportunity
-app.post('/api/opportunities', async (req, res) => {
-    // Basic validation
-    const { title, type, link } = req.body;
-    if (!title || !type || !link) {
-        return res.status(400).json({ 
-            message: "Missing required fields: title, type, and link are mandatory." 
-        });
-    }
-
-    try {
-        // Use the function from db/index.js to insert the data
-        const newOpportunity = await insertOpportunity(req.body); 
-
-        res.status(201).json({
-            message: "Opportunity added successfully!",
-            opportunity: newOpportunity 
-        });
-
-    } catch (error) {
-        console.error('Error in POST /api/opportunities:', error.message);
-        res.status(500).json({ 
-            message: "Failed to insert opportunity into database.",
-            error: error.message
-        });
+// Database Connection
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
     }
 });
 
+// 🚨 NEW Security Middleware 🚨
+const checkAdminSecret = (req, res, next) => {
+    // We expect the secret key to be in the body of POST and DELETE requests
+    const { secret } = req.body;
 
-// 3. GET /api/opportunities: Fetches all active opportunities
+    if (!ADMIN_SECRET) {
+        // Fallback or warning if secret is not set in environment (HIGH RISK!)
+        console.error('WARNING: ADMIN_SECRET is not set in environment!');
+        // For development, you might allow access, but for production, this should block access.
+    }
+    
+    if (!secret || secret !== ADMIN_SECRET) {
+        // If the secret is missing or incorrect, block the request
+        return res.status(401).json({ message: 'Unauthorized. Missing or invalid secret key.' });
+    }
+    
+    // Remove the secret from the body before passing it to the database logic
+    delete req.body.secret; 
+    
+    // If the secret is correct, proceed to the next function (the API logic)
+    next(); 
+};
+
+// --- API Routes ---
+
+// GET: Fetch all opportunities
 app.get('/api/opportunities', async (req, res) => {
     try {
-        // Use the function from db/index.js to fetch data
-        const opportunities = await getOpportunities(); 
-        
-        // Return the array of opportunities (even if empty)
-        res.status(200).json(opportunities);
-        
+        const result = await pool.query('SELECT * FROM opportunities ORDER BY created_at DESC');
+        res.json(result.rows);
     } catch (error) {
-        console.error('Error in GET /api/opportunities:', error.message);
-        res.status(500).json({ 
-            message: "Failed to fetch opportunities from database.",
-            error: error.message
-        });
+        console.error('Error executing GET query:', error);
+        res.status(500).json({ message: 'Failed to retrieve opportunities.' });
+    }
+});
+
+// POST: Create a new opportunity (SECURED)
+app.post('/api/opportunities', checkAdminSecret, async (req, res) => {
+    // The 'secret' field has already been removed by the middleware
+    const { title, type, deadline, link, location } = req.body; 
+
+    try {
+        const result = await pool.query(
+            'INSERT INTO opportunities (title, type, deadline, link, location) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [title, type, deadline, link, location]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error executing POST query:', error);
+        res.status(500).json({ message: 'Failed to create opportunity.' });
+    }
+});
+
+// DELETE: Delete an opportunity by ID (SECURED)
+app.delete('/api/opportunities/:id', checkAdminSecret, async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const result = await pool.query(
+            'DELETE FROM opportunities WHERE id = $1 RETURNING *',
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Opportunity not found.' });
+        }
+
+        res.status(200).json({ message: 'Opportunity deleted successfully.', deleted: result.rows[0] });
+
+    } catch (error) {
+        console.error('Error executing DELETE query:', error);
+        res.status(500).json({ message: 'Failed to delete opportunity.' });
     }
 });
 
 
-// --- Start Server ---
-app.listen(PORT, async () => {
+// Start the server
+app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    
-    // Ensure the table is created on server startup
-    await createOpportunitiesTable(); 
-    
-    console.log(`Access at: http://localhost:${PORT}`);
 });
