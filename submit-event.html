@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit Opportunity - HackMint Alerts</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Tailwind Custom Configuration (copied from index.html)
+        tailwind.config = {
+            darkMode: 'class', 
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#1E40AF', 
+                        'mint-green': '#34D399', 
+                        'dark-text': '#0F172A', 
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Poppins', 'sans-serif'],
+                    }
+                }
+            }
+        }
+
+        // --- Submission Logic ---
+        async function submitOpportunity(event) {
+            event.preventDefault(); // Stop the default form submission (page reload)
+
+            const API_URL = 'https://hackmint-api-fixed.onrender.com/api/opportunities';
+            const form = event.target;
+            const statusMessage = document.getElementById('status-message');
+
+            statusMessage.textContent = 'Submitting...';
+            statusMessage.classList.remove('text-green-500', 'text-red-500');
+            statusMessage.classList.add('text-gray-500');
+
+            // 1. Collect Data from the Form Fields
+            const opportunityData = {
+                title: form.title.value,
+                type: form.type.value,
+                deadline: form.deadline.value,
+                link: form.link.value,
+                location: form.location.value
+            };
+
+            // Basic validation
+            if (!opportunityData.title || !opportunityData.link) {
+                statusMessage.textContent = 'Error: Title and Link are required fields.';
+                statusMessage.classList.add('text-red-500');
+                return;
+            }
+
+            try {
+                // 2. Send Data via POST Request
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(opportunityData)
+                });
+
+                // 3. Handle API Response
+                if (response.ok) {
+                    const newRecord = await response.json();
+                    statusMessage.textContent = `Success! Opportunity ID #${newRecord.id} added. Redirecting in 3 seconds...`;
+                    statusMessage.classList.remove('text-gray-500');
+                    statusMessage.classList.add('text-green-500');
+                    form.reset(); // Clear the form on success
+
+                    // 4. Redirect the user back to the main page after a delay
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 3000);
+
+                } else {
+                    const errorDetails = await response.text();
+                    statusMessage.textContent = `Error: API failed with status ${response.status}. Details: ${errorDetails.substring(0, 100)}...`;
+                    statusMessage.classList.remove('text-gray-500');
+                    statusMessage.classList.add('text-red-500');
+                }
+
+            } catch (error) {
+                // Handle network errors (CORS, server down, etc.)
+                statusMessage.textContent = `Network Error: Could not reach the API. Check the console for details.`;
+                statusMessage.classList.remove('text-gray-500');
+                statusMessage.classList.add('text-red-500');
+                console.error('Submission Error:', error);
+            }
+        }
+    </script>
+</head>
+<body class="font-sans bg-gray-50 text-dark-text min-h-screen flex flex-col transition-colors duration-500 dark:bg-gray-900 dark:text-gray-100">
+
+    <header class="bg-white shadow-lg dark:bg-gray-800">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <a href="index.html" class="text-2xl font-extrabold text-primary-blue">
+                HackMint <span class="text-mint-green">Alerts</span>
+            </a>
+            <a href="index.html" class="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-blue-800 transition duration-300 shadow-md">
+                ← Back to List
+            </a>
+        </nav>
+    </header>
+
+    <main class="flex-grow py-12">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 bg-white p-8 rounded-xl shadow-2xl dark:bg-gray-800 dark:border dark:border-gray-700">
+            <h1 class="text-3xl font-extrabold mb-6 text-dark-text dark:text-white border-b pb-3 border-mint-green/50">Submit a New Opportunity</h1>
+            
+            <form id="opportunity-form" onsubmit="submitOpportunity(event)">
+                
+                <div class="space-y-6">
+                    <div>
+                        <label for="title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Opportunity Title (Required)</label>
+                        <input type="text" id="title" name="title" required 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+
+                    <div>
+                        <label for="type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type of Opportunity</label>
+                        <select id="type" name="type" 
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            <option value="Hackathon">Hackathon</option>
+                            <option value="Internship">Internship</option>
+                            <option value="Scholarship">Scholarship</option>
+                            <option value="Challenge">Coding Challenge/Competition</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="deadline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Application Deadline</label>
+                        <input type="date" id="deadline" name="deadline" required 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                    
+                    <div>
+                        <label for="link" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Official Link (Required)</label>
+                        <input type="url" id="link" name="link" required placeholder="https://..."
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+
+                    <div>
+                        <label for="location" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location / Mode (e.g., Global, Remote, London)</label>
+                        <input type="text" id="location" name="location" placeholder="Remote/Global"
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                </div>
+
+                <p id="status-message" class="mt-4 text-sm font-semibold text-gray-500"></p>
+
+                <button type="submit" 
+                        class="mt-8 w-full px-6 py-3 bg-mint-green text-dark-text font-semibold text-lg rounded-lg hover:bg-emerald-500 transition duration-300 shadow-lg">
+                    Submit Opportunity
+                </button>
+            </form>
+        </div>
+    </main>
+    
+    <footer class="bg-dark-text text-white mt-12 pt-10 pb-6 dark:bg-gray-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 flex justify-between items-center text-sm text-gray-400">
+            <p>&copy; 2025 HackMint Alerts.</p>
+            <p>Made with ❤️ and Code</p>
+        </div>
+    </footer>
+
+</body>
+</html>
