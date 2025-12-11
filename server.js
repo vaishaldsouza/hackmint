@@ -21,19 +21,13 @@ const pool = new Pool({
     }
 });
 
-// 🚨 NEW Security Middleware 🚨
+// 🚨 Security Middleware: Checks for the Admin Secret Key 🚨
 const checkAdminSecret = (req, res, next) => {
     // We expect the secret key to be in the body of POST and DELETE requests
     const { secret } = req.body;
 
-    if (!ADMIN_SECRET) {
-        // Fallback or warning if secret is not set in environment (HIGH RISK!)
-        console.error('WARNING: ADMIN_SECRET is not set in environment!');
-        // For development, you might allow access, but for production, this should block access.
-    }
-    
+    // Check if the secret is missing or incorrect against the server's environment variable
     if (!secret || secret !== ADMIN_SECRET) {
-        // If the secret is missing or incorrect, block the request
         return res.status(401).json({ message: 'Unauthorized. Missing or invalid secret key.' });
     }
     
@@ -46,9 +40,10 @@ const checkAdminSecret = (req, res, next) => {
 
 // --- API Routes ---
 
-// GET: Fetch all opportunities
+// GET: Fetch all opportunities (Public Access)
 app.get('/api/opportunities', async (req, res) => {
     try {
+        // Order by created_at DESC to show newest first
         const result = await pool.query('SELECT * FROM opportunities ORDER BY created_at DESC');
         res.json(result.rows);
     } catch (error) {
@@ -57,7 +52,7 @@ app.get('/api/opportunities', async (req, res) => {
     }
 });
 
-// POST: Create a new opportunity (SECURED)
+// POST: Create a new opportunity (SECURED by checkAdminSecret)
 app.post('/api/opportunities', checkAdminSecret, async (req, res) => {
     // The 'secret' field has already been removed by the middleware
     const { title, type, deadline, link, location } = req.body; 
@@ -74,7 +69,7 @@ app.post('/api/opportunities', checkAdminSecret, async (req, res) => {
     }
 });
 
-// DELETE: Delete an opportunity by ID (SECURED)
+// DELETE: Delete an opportunity by ID (SECURED by checkAdminSecret)
 app.delete('/api/opportunities/:id', checkAdminSecret, async (req, res) => {
     const { id } = req.params;
     
